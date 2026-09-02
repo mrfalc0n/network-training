@@ -4,87 +4,142 @@
 **Time:** 60–90 minutes, most of it waiting on a 2 GB download.
 **Stop point:** when `scripts/verify-phase1.sh` passes. Do not start Phase 2.
 
-Every step below is labeled with **where** you do it. If you find yourself typing a
-Linux command into PowerShell, the label will tell you you're in the wrong place.
+Every step is labeled with **where** you do it. If you find yourself typing a Linux
+command into PowerShell, the label will tell you you're in the wrong place.
+
+For the conceptual picture — what a container actually is, why containerlab isn't
+"inside" Docker, what a veth pair does — read [`01-how-this-works.md`](01-how-this-works.md).
+This file is the procedure; that one is the mental model.
 
 ---
 
 ## 0. Who does what
 
-You have three pieces of software. Here is the entire division of labor:
-
-| Where | What it does in this project | How much you touch it |
+| Where | Role in this project | How much you touch it |
 |---|---|---|
-| **Windows** | Runs Docker Desktop. Runs your browser (to download the Arista image). Runs VS Code. | Almost nothing. Three tasks total. |
-| **Docker Desktop** (Windows app) | Provides the Docker *engine* that WSL uses. You start it and leave it alone. | Start it. Confirm one setting. Never touch again. |
-| **VS Code** (Windows app) | Your editor. It connects *into* WSL so it edits Linux files directly. | Open the folder once. |
-| **WSL / Ubuntu terminal** | **Everything else.** containerlab, git, docker commands, the labs, all of it. | 95% of your time. |
+| **Windows** | Runs your browser (one download) and VS Code (editing). | Two tasks, total. |
+| **WSL / Ubuntu terminal** | **Everything else.** Docker Engine, containerlab, git, the labs, the network. | 95% of your time. |
+| **Docker Desktop** (if installed) | **Not used by this project.** Its WSL integration gets turned off for Ubuntu. | Disable one toggle, then ignore. |
+| **VS Code** (Windows app) | Your editor. Connects *into* WSL and edits Linux files directly. | Open the folder once. |
 
 **Your Windows-side to-do list, in full:**
 
-1. Make sure Docker Desktop is running and its WSL integration is enabled for Ubuntu (Step 1).
-2. Download the Arista cEOS image in your browser (Step 6).
-3. Open the repo folder in VS Code (Step 9, optional but convenient).
+1. Download the Arista cEOS image in your browser (Step 6).
+2. Open the repo in VS Code (Step 9, optional but convenient).
 
-That's it. Nothing gets installed on Windows. No files live on `C:\`. The repo, the
-labs, the containers, and the network all live inside WSL.
+Nothing for this project installs on Windows. No project files live on `C:\`. The repo,
+the Docker engine, the containers and the network all live inside WSL.
 
 > **Why:** containerlab builds networks out of Linux kernel objects — network namespaces
-> and veth pairs. Those are Linux things. Windows has no equivalent and isn't involved.
-> WSL2 is a real Linux kernel, which is why this works at all.
+> and veth pairs. Those are Linux things. WSL2 is a real Linux kernel, which is why this
+> works at all.
 
 ---
 
-## 0b. Mental model (read once, saves an hour later)
+# STEP 1 — Docker Engine, natively inside Ubuntu
 
-Four layers, bottom to top:
+**Where: WSL terminal**
 
-| Layer | What it is | Your existing analogue |
-|---|---|---|
-| **WSL2** | A real Linux kernel running inside Windows | A VM, but with a shared filesystem and no boot delay |
-| **Docker** | Runs *containers*: isolated processes with their own filesystem and network stack | A VRF plus a chroot, roughly |
-| **containerlab** | An orchestrator. Reads a YAML topology, starts the containers, wires them together with virtual cables | Your cabling contractor + patch panel, driven by a text file |
-| **cEOS-lab** | Arista EOS packaged to run as a container instead of on a switch | The same EOS CLI you know, minus the ASIC |
+This lab wants the Docker daemon running **in the same distro as your shell**.
 
-The one idea that matters: **containerlab does not simulate a network.** It creates real
-Linux network namespaces and real veth pairs between them. When `leaf1:eth1` connects to
-`leaf2:eth1`, that is an actual kernel-level virtual cable. Real packets. `tcpdump` works.
+If you already have Docker Desktop with WSL integration, it will appear to work — but
+your shell is in one distro while the containers live in another, behind Desktop's own
+NAT and iptables layer. It's a known source of "the lab deployed but nothing pings," and
+more importantly every containerlab document, tutorial and error message assumes the
+standard layout. Debugging a non-standard setup with no matching search results is a bad
+trade in a learning environment.
 
-**veth pair** = a virtual patch cable. Two ends, both are interfaces, whatever goes in
-one end comes out the other. One end goes inside container A, the other inside container
-B. That is the entire physical layer of this lab.
+## 1a. Check what you have
+
+```bash
+docker info --format '{{.OperatingSystem}}' 2>&1
+```
+
+- Prints something like `Ubuntu` → native engine already. Skip to Step 2.
+- Prints `Docker Desktop` → continue below.
+- Errors out → no daemon yet; continue below.
+
+## 1b. Install the native engine
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+```
+
+This is Docker's official install script. It adds Docker's apt repository and installs
+`docker-ce` (the daemon), `docker-ce-cli` (the client) and `containerd`.
+
+If Docker Desktop is installed, the script prints a warning that a `docker` command
+already exists. **That is expected — let it run.** It's seeing Desktop's client shim, and
+replacing it is the point. The script cannot touch Docker Desktop itself; that's a
+Windows application and this runs inside Ubuntu.
+
+Give yourself socket access without `sudo`:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+`usermod -aG` appends your account to the `docker` group, which owns
+`/var/run/docker.sock`. Group membership is normally read only at login, so `newgrp`
+starts a subshell that picks it up immediately. New terminals get it automatically.
+
+## 1c. Turn off Docker Desktop's WSL integration
+
+**Where: Windows** — skip if you don't have Docker Desktop.
+
+Docker Desktop → gear icon → **Resources** → **WSL Integration** → toggle **Ubuntu OFF**
+→ **Apply & Restart**.
+
+Then, from **PowerShell**:
+
+```powershell
+wsl --shutdown
+```
+
+That fully stops the distro so no stale socket survives. Wait ~10 seconds, then open a
+fresh Ubuntu terminal.
+
+> Docker Desktop stays installed and keeps working for anything else you use it for.
+> You're only telling it to stop lending its engine to this distro. If it later pops up
+> saying "WSL integration unexpectedly stopped — restart it?", choose **Skip**.
+
+## 1d. Make the daemon survive reboots
+
+WSL doesn't run systemd unless you ask it to. Check:
+
+```bash
+grep -s systemd /etc/wsl.conf || echo "systemd not enabled"
+```
+
+If it says not enabled:
+
+```bash
+printf '[boot]\nsystemd=true\n' | sudo tee /etc/wsl.conf
+```
+
+Then `wsl --shutdown` from PowerShell again and reopen Ubuntu.
+
+With systemd on, enable and start Docker permanently:
+
+```bash
+sudo systemctl enable --now docker
+docker version
+```
+
+**You should see:** a `Client:` block and a `Server:` block. In the Server block, look
+for `Docker Engine - Community` and — importantly — **no mention of Docker Desktop**.
+
+> Without systemd you'd start it by hand with `sudo service docker start` every session.
+> Enabling systemd once is worth it.
 
 ---
 
-# STEP 1 — Check Docker Desktop
+# STEP 2 — Confirm you're in the right place
 
-**Where: Windows**
-
-1. Launch Docker Desktop if it isn't already running. Wait for the whale icon in the
-   system tray to stop animating — that means the engine is up.
-2. Click the **gear icon** (Settings) → **Resources** → **WSL Integration**.
-3. Confirm **"Enable integration with my default WSL distro"** is on, and that the
-   toggle next to your **Ubuntu** distro is on.
-4. If you changed anything, click **Apply & Restart**.
-
-Leave Docker Desktop running for the rest of this runbook. Minimize it; you're done
-with Windows for now.
-
-> Docker Desktop runs the actual Docker engine inside its own hidden WSL distro and
-> lends it to your Ubuntu. That mostly works for this lab. It is also the single most
-> common cause of "the lab deployed but no traffic passes." Step 5 tests for exactly
-> that in 60 seconds, and gives you the fix if it fails. Don't preemptively change
-> anything — test first.
-
----
-
-# STEP 2 — Open your WSL terminal
-
-**Where: Windows → opens a WSL terminal**
+**Where: WSL terminal**
 
 Open Windows Terminal and pick the **Ubuntu** profile. (Or from PowerShell: `wsl`.)
-
-Confirm you're in Linux:
 
 ```bash
 uname -r
@@ -92,26 +147,16 @@ uname -r
 
 **You should see:** something ending in `microsoft-standard-WSL2`.
 
-Confirm Docker reached you across the boundary:
-
-```bash
-docker version
-```
-
-**You should see:** both a `Client:` block and a `Server:` block, with no error about a
-socket. If you get `Cannot connect to the Docker daemon`, Docker Desktop isn't running
-or the WSL integration toggle from Step 1 is off.
-
-Everything from here to the end of Step 10 happens **in this terminal**.
+Everything through Step 8 happens in this terminal.
 
 ---
 
-# STEP 3 — Clone the repo into your existing repos folder
+# STEP 3 — Clone the repo
 
 **Where: WSL terminal**
 
-You already keep every repo in `~/life-os/repos`. This one goes there too — same
-pattern, nothing new to learn.
+Repos live in the Linux filesystem. On this machine that's `~/life-os/repos`, alongside
+everything else.
 
 ```bash
 cd ~/life-os/repos
@@ -119,32 +164,16 @@ git clone https://github.com/mrfalc0n/network-training.git
 cd network-training
 ```
 
-**You should see:** `Cloning into 'network-training'...` then `done.`
+**You should see:** `Cloning into 'network-training'...` then `done.` Then `ls` shows
+`LAB-NOTES.md  README.md  docs  labs  scripts`.
 
-Confirm what landed:
-
-```bash
-ls
-```
-
-**You should see:** `LAB-NOTES.md  README.md  docs  labs  scripts`
-
-Your working directory for the rest of this runbook is:
-
-```
-~/life-os/repos/network-training
-```
-
-> **Ignore any earlier advice about `C:\Github`.** Your existing setup — repos in the
-> Linux filesystem under `~/life-os/repos` — is already the correct pattern, and it's
-> what containerlab needs. Repos stored on `C:\` (which WSL sees as `/mnt/c`) can't
-> represent Linux file permissions and are slow across the Windows boundary; cEOS
-> bind-mounts its config directory and misbehaves there. You were already doing this
-> right. Nothing changes.
+> **Don't put this on `C:\`.** WSL sees Windows drives as `/mnt/c`, which can't represent
+> Linux file permissions and is slow across the boundary. cEOS bind-mounts its config
+> directory and misbehaves there.
 
 ---
 
-# STEP 4 — Run the pre-flight check
+# STEP 4 — Pre-flight check
 
 **Where: WSL terminal**
 
@@ -153,20 +182,15 @@ chmod +x scripts/*.sh
 ./scripts/check-env.sh
 ```
 
-`chmod +x` marks the two scripts as executable. Linux won't run a file as a program
-unless that permission bit is set, and GitHub's web API can't set it — so you set it
-once here.
+`chmod +x` marks the scripts executable. Linux won't run a file as a program without that
+permission bit, and GitHub's API can't set it — so you set it once here. Step 10 records
+it in git permanently.
 
-`check-env.sh` only *reads* your system. It changes nothing. It reports: whether you're
-on WSL2, whether the repo is in the Linux filesystem, your cgroup version, which Docker
-flavor you have, whether containerlab is installed, and your RAM and free disk.
+`check-env.sh` only reads your system; it changes nothing.
 
-**You should see:** PASS on platform, filesystem, and Docker; a WARN that containerlab
-isn't installed yet (correct — that's Step 5) and a WARN that `ceos:lab` isn't found
-(correct — that's Step 6). WARN lines are informational. Only FAIL blocks you.
-
-Note down what it says under **4. Docker** — whether it detected Docker Desktop or a
-native engine. You'll report that back at the end.
+**You should see:** PASS on platform, filesystem and Docker, with section 4 reading
+`native Docker Engine (what containerlab expects)`. WARN lines about containerlab and
+`ceos:lab` are correct at this stage — those are Steps 5 and 6. Only FAIL blocks you.
 
 ---
 
@@ -181,62 +205,49 @@ curl -sL https://containerlab.dev/setup | sudo -E bash -s "all"
 ```
 
 Reading that line: `curl -sL <url>` downloads the setup script quietly and follows
-redirects. The `|` pipes it into `sudo -E bash`, which runs it as root while keeping
-your environment variables. `-s "all"` tells it to do the full install.
+redirects. The `|` pipes it into `sudo -E bash`, which runs it as root while keeping your
+environment variables. `-s "all"` requests the full install.
 
-> Piping a URL into `sudo bash` is normally a habit worth breaking. Here it's the
-> method the project documents on its own domain. To read it first:
+> Piping a URL into `sudo bash` is normally a habit worth breaking. Here it's the method
+> the project documents on its own domain. To read it first:
 > `curl -sL https://containerlab.dev/setup | less`, then run the real command.
 
-The installer creates a group called `clab_admins` and adds you to it. Pick that up
-without logging out:
+The installer creates a `clab_admins` group and adds you to it:
 
 ```bash
 newgrp clab_admins
-```
-
-Verify:
-
-```bash
 containerlab version
 ```
 
-**You should see:** a banner with a `version:` line. If you get `command not found`,
-close the terminal, open a new Ubuntu terminal, and try again.
+**You should see:** a banner with a `version:` line. If you get `command not found`, open
+a fresh Ubuntu terminal — the PATH needs a new shell.
 
-> `clab` is a built-in shorthand for `containerlab`. Both work.
+## 5b. Smoke test — two containers, one virtual cable
 
-## 5b. Smoke test — two tiny Linux containers and one virtual cable
+**Why this exists:** if you jump straight to cEOS and it fails, you won't know whether the
+problem is your environment or the Arista image. This isolates the variable in 60 seconds
+using a 5 MB image instead of a 2 GB one.
 
-**Why this exists:** if you jump straight to cEOS and it fails, you won't know whether
-the problem is your environment or the Arista image. This isolates the variable. It
-takes 60 seconds and uses a 5 MB image instead of a 2 GB one.
-
-Look at the topology before you run it:
+Read the topology before running it:
 
 ```bash
 cd ~/life-os/repos/network-training/labs/00-smoke-test
 cat smoke.clab.yml
 ```
 
-Read it: `nodes:` declares two Alpine Linux containers named `n1` and `n2`. `links:`
-declares one veth pair between `n1:eth1` and `n2:eth1`. The `exec:` blocks put an IP
-address on each end after boot (Alpine has no config engine, so it's done by hand;
-cEOS won't need this).
-
-Deploy it:
+`nodes:` declares two Alpine Linux containers, `n1` and `n2`. `links:` declares one veth
+pair between `n1:eth1` and `n2:eth1`. The `exec:` blocks put an IP on each end after boot
+(Alpine has no config engine; cEOS won't need this).
 
 ```bash
 containerlab deploy -t smoke.clab.yml
 ```
 
-`deploy` means: read the topology, pull any missing images, start the containers,
-create the veth pairs, run the `exec` commands. `-t` points at the topology file.
+`deploy` means: read the topology, pull missing images, start the containers, create the
+veth pairs, run the `exec` commands. `-t` points at the topology file.
 
-**You should see:** a pull of `alpine:3` the first time, then a summary table with
-`clab-smoke-n1` and `clab-smoke-n2`, State `running`.
-
-Now prove the virtual cable carries traffic:
+**You should see:** an `alpine:3` pull on first run, then a table with `clab-smoke-n1`
+and `clab-smoke-n2`, State `running`.
 
 ```bash
 docker exec clab-smoke-n1 ping -c 3 10.0.0.2
@@ -245,66 +256,58 @@ docker exec clab-smoke-n1 ping -c 3 10.0.0.2
 `docker exec <container> <command>` runs a command inside a container — the container
 equivalent of SSHing to a device, without SSH.
 
-**You should see:**
+**You should see:** `3 packets transmitted, 3 packets received, 0% packet loss`.
 
-```
-3 packets transmitted, 3 packets received, 0% packet loss
-```
+That packet was forwarded by the actual Linux kernel between two network namespaces over
+a real veth pair. Not a simulation.
 
-### If the ping fails
+### If the ping fails on a native engine
 
-This is the Docker Desktop problem. The fix is to install Docker Engine natively inside
-Ubuntu and stop using Docker Desktop's engine for this distro:
+Rare. Work through, in order:
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-newgrp docker
+docker ps                                    # are both containers actually running?
+docker exec clab-smoke-n1 ip -br addr        # did eth1 get 10.0.0.1/30?
+docker logs clab-smoke-n1                    # did the exec commands error?
 ```
 
-Then **on Windows**: Docker Desktop → Settings → Resources → WSL Integration → turn the
-**Ubuntu toggle off** → Apply & Restart. Then from PowerShell run `wsl --shutdown`,
-reopen your Ubuntu terminal, and re-run the deploy and ping.
+If `eth1` has no address, the `exec:` block didn't run — destroy and redeploy. If `eth1`
+is missing entirely, the veth didn't attach, which points at a containerlab install
+problem. Paste the output rather than guessing.
 
-> Docker Desktop and a native engine can coexist on the machine; you're just choosing
-> which one this distro talks to. Your other projects that use Docker Desktop are
-> unaffected.
-
-## 5c. Tear the smoke test down
+## 5c. Tear it down
 
 ```bash
 containerlab destroy -t smoke.clab.yml --cleanup
 cd ~/life-os/repos/network-training
 ```
 
-`--cleanup` also removes the `clab-smoke/` runtime directory containerlab created.
-Leaving labs running eats RAM.
+`--cleanup` also removes the `clab-smoke/` runtime directory. `destroy` doesn't touch the
+topology file — redeploy any time. Containers are disposable; the YAML persists.
 
 ---
 
-# STEP 6 — Download the Arista cEOS image
+# STEP 6 — Get the Arista cEOS image
 
 **Where: Windows (browser), then WSL terminal**
 
-This is the only step that needs a browser. Arista gives cEOS-lab away free but puts it
-behind a login.
+The only step that needs a browser. Arista gives cEOS-lab away free but gates it behind a
+login.
 
-## 6a. Download it (Windows)
+## 6a. Download (Windows)
 
 1. Create a free account at <https://www.arista.com/en/login>. Use a **personal email** —
    you want this account to outlive any employer.
-2. Go to **Support → Software Download**.
-3. Expand **cEOS-lab** and pick a release. **It must be 4.32.0F or newer.** Older
-   releases need cgroups v1; WSL2 provides cgroups v2, and the container will silently
-   crash-loop instead of giving you a useful error.
+2. **Support → Software Download**.
+3. Expand **cEOS-lab** and pick a release. **It must be 4.32.0F or newer.** Older releases
+   need cgroups v1; WSL2 provides cgroups v2, and the container will silently crash-loop
+   rather than give a useful error.
 4. Download the 64-bit file, named like `cEOS64-lab-4.32.2F.tar.xz`. About 2 GB.
-
-It lands in your Windows `Downloads` folder.
 
 ## 6b. Move it into WSL (WSL terminal)
 
-Don't import it from `/mnt/c` — it's slow and large files occasionally corrupt across
-the boundary. Move it into the Linux filesystem first.
+Don't import from `/mnt/c` — slow, and large files occasionally corrupt across the
+boundary.
 
 ```bash
 mkdir -p ~/images
@@ -312,8 +315,7 @@ mv /mnt/c/Users/<your-windows-username>/Downloads/cEOS64-lab-*.tar.xz ~/images/
 ls -lh ~/images/
 ```
 
-Replace `<your-windows-username>` with your actual Windows account folder name. If
-you're unsure of it, run `ls /mnt/c/Users/` and look.
+If you're unsure of your Windows account folder name, run `ls /mnt/c/Users/` and look.
 
 **You should see:** one file, roughly 1.8–2.2 GB.
 
@@ -324,18 +326,17 @@ cd ~/images
 docker import cEOS64-lab-4.32.2F.tar.xz ceos:4.32.2F
 ```
 
-Substitute your actual version number in **both** places on that line.
+Substitute your actual version in **both** places.
 
-> **Why `import` and not `load` or `pull`?** `docker pull` fetches from a public
-> registry — Arista doesn't publish there. `docker load` expects an archive that already
-> contains Docker image layers and metadata. `docker import` takes a **plain filesystem
-> tarball** and wraps it into an image. Arista ships a plain filesystem tarball, so
-> `import` is the right verb — and it's why you have to supply the name and tag
-> yourself.
+> **Why `import` and not `load` or `pull`?** `docker pull` fetches from a public registry —
+> Arista doesn't publish there. `docker load` expects an archive that already contains
+> Docker image layers and metadata. `docker import` takes a **plain filesystem tarball**
+> and wraps it into an image. Arista ships a plain filesystem tarball, which is also why
+> you have to supply the name and tag yourself.
 
 **You should see:** a `sha256:...` line after 30–90 seconds.
 
-Now add a second, stable name so topology files never need editing when you upgrade:
+Add a stable alias so topology files never need editing on upgrade:
 
 ```bash
 docker tag ceos:4.32.2F ceos:lab
@@ -343,11 +344,10 @@ docker images | grep ceos
 ```
 
 **You should see:** two rows — `ceos 4.32.2F` and `ceos lab` — with the **same IMAGE ID**
-and about 2 GB. A tag is just a label pointing at an image; there's still only one copy
-on disk. Every lab in this repo references `ceos:lab`, so upgrading later is one
-`docker tag` instead of editing every file.
+and about 2 GB. A tag is a pointer; there's still one copy on disk. Every lab in this repo
+references `ceos:lab`, so upgrading later is one `docker tag` instead of editing files.
 
-Write the exact version into `LAB-NOTES.md`. Future-you and any interviewer will ask.
+Record the exact version in `LAB-NOTES.md`.
 
 ---
 
@@ -361,19 +361,18 @@ cat two-node.clab.yml
 containerlab deploy -t two-node.clab.yml
 ```
 
-**You should see:** 60–120 seconds of silence while EOS boots — it's a full network OS
-init, not a hello-world container — then a table with `clab-p1-ceos-leaf1` and
+**You should see:** 60–120 seconds of silence while EOS boots — a full network OS init,
+not a hello-world container — then a table with `clab-p1-ceos-leaf1` and
 `clab-p1-ceos-leaf2`, kind `arista_ceos`, State `running`, each with a management IP in
 `172.20.20.0/24`.
 
-Get onto the CLI:
+Time that deploy. You'll report it back; it sets the ceiling on Phase 2's topology size.
 
 ```bash
 docker exec -it clab-p1-ceos-leaf1 Cli
 ```
 
-`-it` attaches your terminal interactively. `Cli` — capital C — is the EOS shell. From
-here it's the EOS you already know:
+`-it` attaches your terminal interactively. `Cli` — capital C — is the EOS shell:
 
 ```
 leaf1>enable
@@ -381,31 +380,29 @@ leaf1#show version
 leaf1#show interfaces status
 ```
 
-**You should see:** `show version` reporting the cEOS version you imported, and
-`show interfaces status` listing `Et1` — that's the containerlab veth, presented to EOS
-as an ordinary front-panel port.
+**You should see:** the cEOS version you imported, and `Et1` in the interface list —
+that's the containerlab veth, presented to EOS as an ordinary front-panel port.
 
-Leave the CLI with `exit`, twice, or `Ctrl-D`.
+Exit with `exit` twice, or `Ctrl-D`.
 
-> **Management vs data plane — the part people get wrong.** Each node also has `eth0`,
-> which EOS shows as `Management0`. That's Docker's management bridge and it is *not*
-> part of the fabric you're designing. Data links are `eth1` and up (`Ethernet1`+).
-> Confusing the two is how people "prove" a fabric works when traffic was actually
-> going out of band.
+> **Management vs data plane.** Each node also has `eth0`, which EOS shows as
+> `Management0`. That's Docker's management bridge and it is **not** part of the fabric
+> you're designing. Data links are `eth1`+ (`Ethernet1`+). Confusing the two is how people
+> "prove" a fabric works when traffic was going out of band.
 
 ---
 
-# STEP 8 — Prove the data plane (optional, 10 minutes, recommended)
+# STEP 8 — Prove the data plane (optional, recommended, 10 min)
 
 **Where: WSL terminal → EOS CLI**
 
-Phase 1's bar is "two nodes boot." But confirming a packet actually crosses the veth
-*inside EOS* is what makes the environment trustworthy before Phase 2's BGP work.
+Phase 1's bar is "two nodes boot." Confirming a packet crosses the veth *inside EOS* is
+what makes the environment trustworthy before Phase 2's BGP work.
 
 This is the **last time you configure anything by hand** in this repo. Phase 3 converts
 everything to Ansible and the rule after that is absolute.
 
-On leaf1 (`docker exec -it clab-p1-ceos-leaf1 Cli`):
+leaf1 (`docker exec -it clab-p1-ceos-leaf1 Cli`):
 
 ```
 enable
@@ -416,7 +413,7 @@ interface Ethernet1
 end
 ```
 
-On leaf2 (`docker exec -it clab-p1-ceos-leaf2 Cli`):
+leaf2 (`docker exec -it clab-p1-ceos-leaf2 Cli`):
 
 ```
 enable
@@ -431,18 +428,15 @@ Back on leaf1:
 
 ```
 ping 10.1.1.2
+show interfaces Ethernet1 counters
 ```
 
-**You should see:** 5/5 replies, sub-millisecond.
-
-If `show interfaces Ethernet1` reports the line protocol down, the veth didn't attach —
-destroy and redeploy the lab.
+**You should see:** 5/5 replies, sub-millisecond, and TX on one side matching RX on the
+other. If the line protocol is down, the veth didn't attach — destroy and redeploy.
 
 > `no switchport` moves the port from L2 bridging to L3 routing: it gets its own IP and
-> participates in the routing table directly instead of belonging to a VLAN. Same concept
-> you know from EXOS; this is the Arista dialect you'll be writing for the rest of the
-> repo. Phase 2's leaf-spine underlay is nothing but routed point-to-point links like
-> this one.
+> participates in the routing table directly instead of belonging to a VLAN. Phase 2's
+> leaf-spine underlay is nothing but routed point-to-point links like this one.
 
 ---
 
@@ -450,23 +444,21 @@ destroy and redeploy the lab.
 
 **Where: WSL terminal → opens VS Code on Windows**
 
-From inside the repo directory:
+From inside the repo:
 
 ```bash
 code .
 ```
 
-The first time you run this, VS Code installs a small server component inside WSL. Then
-a VS Code window opens on Windows, editing the Linux files directly. The bottom-left
-corner will show a green badge reading **WSL: Ubuntu** — that's how you know you're
-editing the Linux copy and not a Windows one.
+First run installs a small server component inside WSL. A VS Code window opens on Windows
+and edits the Linux files directly. Bottom-left shows a green **WSL: Ubuntu** badge —
+that's how you know you're on the Linux copy.
 
-If `code` isn't found, open VS Code on Windows, press `Ctrl+Shift+X`, and install the
-**WSL** extension (published by Microsoft). Then reopen your terminal and try again.
+If `code` isn't found: open VS Code on Windows, `Ctrl+Shift+X`, install the **WSL**
+extension (Microsoft), reopen your terminal, try again.
 
-> Don't browse to the files through Windows File Explorer and open them that way. Use
-> `code .` from inside WSL, or VS Code's **WSL: Connect to WSL** command. Editing
-> through the Windows path can mangle line endings and permissions.
+> Don't reach the files through Windows File Explorer. Use `code .` from inside WSL.
+> Editing through the Windows path can mangle line endings and permissions.
 
 ---
 
@@ -480,7 +472,8 @@ containerlab destroy -t two-node.clab.yml --cleanup
 cd ~/life-os/repos/network-training
 ```
 
-Fill in `LAB-NOTES.md` — cEOS version, Docker flavor, what broke, what fixed it. Then:
+Fill in `LAB-NOTES.md` — cEOS version, Docker flavor, deploy time, what broke, what fixed
+it. Then:
 
 ```bash
 git update-index --chmod=+x scripts/check-env.sh scripts/verify-phase1.sh
@@ -489,22 +482,17 @@ git commit -m "Phase 1: environment verified, two cEOS nodes booting"
 git push
 ```
 
-The `git update-index` line permanently records the executable bit in git, so the
+`git update-index --chmod=+x` records the executable bit in git permanently, so the
 `chmod` from Step 4 never has to be repeated on another machine.
 
-**You should see:** `git push` reporting objects written to
-`github.com/mrfalc0n/network-training`.
-
-If it prompts for a password, note that GitHub stopped accepting account passwords —
-you need a personal access token or the `gh` CLI. Tell me and we'll set it up.
+If `git push` prompts for a password: GitHub stopped accepting account passwords. You need
+a personal access token or the `gh` CLI. Flag it and we'll set it up.
 
 ---
 
 # STEP 11 — Acceptance, then stop
 
 **Where: WSL terminal**
-
-Redeploy the cEOS lab, then run the assertions:
 
 ```bash
 cd labs/01-two-node-ceos && containerlab deploy -t two-node.clab.yml
@@ -514,15 +502,15 @@ cd ~/life-os/repos/network-training && ./scripts/verify-phase1.sh
 Then work through [`phase-1-acceptance.md`](phase-1-acceptance.md) and take the cold
 self-check in [`whiteboard/phase-1-containerlab-mechanics.md`](whiteboard/phase-1-containerlab-mechanics.md).
 
-When those pass, **stop.** Phase 2 (BGP unnumbered leaf-spine, ECMP, MTU) isn't built
-yet and is gated on your review.
+When those pass, **stop.** Phase 2 (BGP unnumbered leaf-spine, ECMP, MTU) isn't built yet
+and is gated on your review.
 
 **Report back four things:**
 
 1. Which steps failed on the first attempt, and why.
-2. Docker flavor — Desktop integration or native engine (from Step 4).
-3. cEOS version you imported.
-4. Wall-clock seconds for the 2-node deploy — it sets the ceiling on Phase 2's topology size.
+2. Docker engine confirmation from `check-env.sh` section 4.
+3. cEOS version imported.
+4. Wall-clock seconds for the 2-node deploy.
 
 ---
 
@@ -530,19 +518,22 @@ yet and is gated on your review.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Cannot connect to the Docker daemon` | Docker Desktop not running, or WSL integration off | Step 1 |
-| `containerlab: command not found` | PATH not refreshed after install | Close and reopen the Ubuntu terminal |
+| `Cannot connect to the Docker daemon` | Daemon not started | `sudo systemctl enable --now docker` (or `sudo service docker start` without systemd) |
 | `permission denied` on the docker socket | Not in the `docker` group | `sudo usermod -aG docker $USER` then `newgrp docker` |
-| Smoke-test ping fails | Docker Desktop networking | Step 5b, "If the ping fails" |
+| `docker info` says "Docker Desktop" | Desktop's WSL integration still on | Step 1c |
+| Daemon gone after a reboot | systemd not enabled | Step 1d |
+| `containerlab: command not found` | PATH not refreshed | Open a fresh Ubuntu terminal |
+| Smoke-test ping fails | See the ordered checks in Step 5b | |
 | cEOS container keeps restarting | Image older than 4.32.0F on cgroups v2 | Download 4.32.0F or newer |
 | `no such image` on deploy | Tag mismatch | `docker images` — confirm `ceos:lab` exists |
-| Deploy hangs at "Creating container" | Out of RAM (cEOS wants ~2 GB per node) | Close other apps; check `free -h` |
-| Everything is slow | Lab running under `/mnt/c` | Move the repo into `~/life-os/repos` |
+| Deploy hangs at "Creating container" | Out of RAM (~2 GB per cEOS node) | Close other apps; `free -h` |
+| Everything slow | Lab running under `/mnt/c` | Move the repo into `~/life-os/repos` |
 | `code .` not found | VS Code WSL extension missing | Step 9 |
 
 ---
 Author: Claude (Cowork) / Anthropic
 Model: claude-opus-5
 Created: 2026-09-02 ET
-Lineage: revised from prior AI draft (rewritten for beginner cadence and Chris's actual WSL layout)
+Lineage: revised from prior AI draft — rewritten for beginner cadence, then again after
+verification on arcwise to make native Docker Engine the documented path
 ---
