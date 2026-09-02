@@ -33,6 +33,8 @@ Phase 1 is deliberately fenced. Nothing past it is built yet.
 ```
 docs/
   00-environment-setup.md      Phase 1 runbook — install, import, boot, verify
+  01-how-this-works.md         Architecture: namespaces, veth pairs, what the lab does
+                               and does not prove
   phase-1-acceptance.md        Exit criteria and expected output for every step
   whiteboard/                  "Can I explain this cold?" interview self-checks
 labs/
@@ -46,12 +48,12 @@ LAB-NOTES.md                   Running log — what broke, what fixed it
 
 ---
 
-## Quick start
+## Environment
 
-Everything runs inside WSL2, in the Linux filesystem — not on `C:\`. Read
-[`docs/00-environment-setup.md`](docs/00-environment-setup.md) start to finish before
-typing anything; it assumes no prior Docker or containerlab experience and labels every
-step with whether it happens on Windows or in the WSL terminal.
+WSL2 on Windows, with **Docker Engine installed natively inside the Ubuntu distro** — not
+Docker Desktop's WSL integration. containerlab manipulates network namespaces and veth
+pairs directly, and every upstream document assumes the daemon and your shell live in the
+same distro. Repos live in the Linux filesystem, never under `/mnt/c`.
 
 ```bash
 cd ~/life-os/repos
@@ -60,6 +62,10 @@ cd network-training
 chmod +x scripts/*.sh
 ./scripts/check-env.sh          # reports what is missing before you install anything
 ```
+
+Read [`docs/00-environment-setup.md`](docs/00-environment-setup.md) start to finish before
+typing anything else — it assumes no prior Docker or containerlab experience and labels
+every step with whether it happens on Windows or in the WSL terminal.
 
 ---
 
