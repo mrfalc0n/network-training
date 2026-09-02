@@ -1,0 +1,31 @@
+# Phase 1 acceptance lab — two Arista cEOS-lab nodes, back to back.
+#
+# Deliberately unconfigured. Phase 1 proves the NOS boots and the veth is
+# presented to EOS as Ethernet1. Underlay routing arrives in Phase 2.
+#
+# Prerequisite: the cEOS image is imported and tagged `ceos:lab`
+#   docker import cEOS64-lab-<version>.tar.xz ceos:<version>
+#   docker tag ceos:<version> ceos:lab
+#
+# Deploy:  containerlab deploy -t two-node.clab.yml
+# CLI:     docker exec -it clab-p1-ceos-leaf1 Cli
+# Destroy: containerlab destroy -t two-node.clab.yml --cleanup
+#
+# Default credentials inside cEOS: admin / admin
+
+name: p1-ceos
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ceos:lab
+
+  nodes:
+    leaf1:
+      kind: arista_ceos
+    leaf2:
+      kind: arista_ceos
+
+  links:
+    # containerlab presents ethN inside the container as EthernetN in EOS.
+    - endpoints: ["leaf1:eth1", "leaf2:eth1"]

@@ -1,0 +1,33 @@
+# Phase 1 smoke test — proves Docker, containerlab, and veth plumbing work.
+#
+# Two Alpine Linux containers joined by a single virtual cable (veth pair).
+# Alpine has no config engine, so the IPs are applied by exec commands after boot.
+# If this lab pings, the environment is sound and any later failure is the NOS,
+# not the plumbing.
+#
+# Deploy:  containerlab deploy -t smoke.clab.yml
+# Test:    docker exec clab-smoke-n1 ping -c 3 10.0.0.2
+# Destroy: containerlab destroy -t smoke.clab.yml --cleanup
+
+name: smoke
+
+topology:
+  defaults:
+    kind: linux
+
+  kinds:
+    linux:
+      image: alpine:3
+
+  nodes:
+    n1:
+      exec:
+        - ip addr add 10.0.0.1/30 dev eth1
+        - ip link set eth1 up
+    n2:
+      exec:
+        - ip addr add 10.0.0.2/30 dev eth1
+        - ip link set eth1 up
+
+  links:
+    - endpoints: ["n1:eth1", "n2:eth1"]
