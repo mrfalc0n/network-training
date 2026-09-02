@@ -48,13 +48,17 @@ LAB-NOTES.md                   Running log — what broke, what fixed it
 
 ## Quick start
 
-Read [`docs/00-environment-setup.md`](docs/00-environment-setup.md) start to finish
-before typing anything. It assumes no prior Docker or containerlab experience.
+Everything runs inside WSL2, in the Linux filesystem — not on `C:\`. Read
+[`docs/00-environment-setup.md`](docs/00-environment-setup.md) start to finish before
+typing anything; it assumes no prior Docker or containerlab experience and labels every
+step with whether it happens on Windows or in the WSL terminal.
 
 ```bash
+cd ~/life-os/repos
 git clone https://github.com/mrfalc0n/network-training.git
 cd network-training
-./scripts/check-env.sh          # tells you what is missing before you install
+chmod +x scripts/*.sh
+./scripts/check-env.sh          # reports what is missing before you install anything
 ```
 
 ---
