@@ -20,7 +20,7 @@ Fill in during Phase 1:
 | containerlab version     | 0.79                                                 |
 | cEOS-lab version         | 4.36.2F-49692818.4362F                               |
 | Repo path                | /home/mrfalc0n/life-os/repos/network-training        |
-| 2-node deploy wall-clock | under 30 seconds                                     |
+| 2-node deploy wall-clock | 30.929s -                                            |
 
 ---
 
