@@ -169,15 +169,36 @@ Fill in as you go. These are the facts an interviewer would ask you to recall.
 
 ### Session 7 — BGP unnumbered
 
-**Date:**
+**Date:** 2026-09-08
 
-**Syntax I had to correct vs. the runbook** (EOS version/release quirks):
+**Syntax corrections vs. the runbook:**
 
-- _(one line each)_
+- Runbook uses `neighbor interface Et1-2 peer-group SPINES remote-as 65000` range syntax — EOS 4.36.2F does not accept interface ranges for `neighbor interface`; each interface must be declared separately
+- `ip address unnumbered Loopback0` is NOT needed and should not be on fabric interfaces — remove it
+- `ipv6 unicast-routing` must be enabled globally on every node or ND does not populate the IPv6 neighbor table on Ethernet interfaces (sessions will not form)
+- **Critical:** `neighbor SPINES next-hop address-family ipv6` alone is insufficient. The `originate` keyword is required: `neighbor SPINES next-hop address-family ipv6 originate`. Without it, the Extended Next-Hop capability is advertised and negotiated, but EOS does not actually encode outbound UPDATEs with IPv6 next-hops — it falls back to IPv4, fails with "IPv4 local address not available," and drops all outbound paths silently. Routes never reach the peer despite sessions showing Established and PfxAdv > 0.
+- `bgp next-hop address-family ipv6` (global, without neighbor qualifier) under `address-family ipv4` is also required alongside the per-neighbor `originate` form
+
+**Troubleshooting trail (worth keeping — this is what debugging BGP unnumbered actually looks like):**
+
+Sessions came up but zero routes were exchanged. Extended Next-Hop Capability showed `advertised and received and negotiated` in `show bgp neighbors`. PfxAdv showed 1 on all nodes. `show ip bgp` only showed each node's own loopback. The outbound drop counter `IPv4 local address not available` was incrementing on every node. Tried in sequence: removing `ip address unnumbered`, adding `bgp next-hop address-family ipv6` globally, hard session resets, soft outbound resets — none fixed it. Root cause: `originate` keyword missing from the `next-hop address-family ipv6` command on all nodes. Adding it caused routes to flow immediately.
 
 **What changed vs. numbered underlay:**
 
+- No /31 addresses on Ethernet interfaces — fully unassigned
+- BGP neighbors identified by interface (`neighbor interface Et1`) rather than IP address
+- Sessions peer over IPv6 link-locals (`fe80::`) instead of /31 addresses
+- `show ip bgp summary` shows link-local + interface as neighbor identifier
+- Next-hops in the routing table are expressed as link-locals via interfaces rather than /31 IPs
+- Required: `ipv6 unicast-routing`, `ipv6 enable` on interfaces, `bgp next-hop address-family ipv6 originate`
+
 **What didn't change:**
+
+- Same ASNs, same loopbacks, same `network` statements, same ECMP config
+- Same `maximum-paths 4 ecmp 4` and `bgp bestpath as-path multipath-relax`
+- Same MTU on all interfaces
+- Full loopback-to-loopback reachability, same two next-hops per remote leaf loopback
+- 16 IPv4 addresses eliminated from fabric link planning
 
 ---
 

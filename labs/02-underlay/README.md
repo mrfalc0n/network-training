@@ -9,7 +9,7 @@ This file is the reference you keep open while configuring.
 ## Physical
 
 ```
-            spine1 (AS 65000)            spine2 (AS 65000)
+            spine1 (AS 65000)            spine2 (AS 65005)
             /    |    |    \             /    |    |    \
           Et1   Et2  Et3   Et4         Et1   Et2  Et3   Et4
            |     |    |     |           |     |    |     |
@@ -35,7 +35,7 @@ the VXLAN tunnel source. It is the only address that must be reachable fabric-wi
 | Node | Loopback0 | ASN |
 |---|---|---|
 | spine1 | 10.0.0.11/32 | 65000 |
-| spine2 | 10.0.0.12/32 | 65000 |
+| spine2 | 10.0.0.12/32 | 65005 |
 | leaf1 | 10.0.0.1/32 | 65001 |
 | leaf2 | 10.0.0.2/32 | 65002 |
 | leaf3 | 10.0.0.3/32 | 65003 |
