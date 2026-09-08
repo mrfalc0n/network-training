@@ -33,16 +33,23 @@ you type — for example it may render your `neighbor` statements inside an
 in the habit of verifying the config the device holds, rather than the config you
 believe you sent, is worth more than the config itself.
 
-**On saving your work.** Everything you type dies with `containerlab destroy`. To keep a
-snapshot:
+**On saving your work — read this carefully, it is a trap.**
+
+Everything you type dies with `containerlab destroy`. `containerlab save` writes each
+node's running-config into the lab's **runtime directory** (`clab-p2-underlay/`) — but
+that directory is in `.gitignore` and is **deleted by `destroy --cleanup`**. Running
+`containerlab save` followed by `git add .` preserves nothing at all.
+
+Use the wrapper instead:
 
 ```bash
-containerlab save -t underlay.clab.yml
+./scripts/save-configs.sh labs/02-underlay/underlay.clab.yml <label>
 ```
 
-That writes each node's running-config under `clab-p2-underlay/<node>/`. Commit those to
-git at the end of a session. They are your record of what you built — and in Phase 3 they
-become the target output your Ansible templates must reproduce.
+It runs `containerlab save`, then copies every node's config out to
+`labs/02-underlay/configs/<label>/<node>.cfg` — a tracked path that survives teardown.
+Commit those. In Phase 3 they become the target output your Ansible templates must
+reproduce, so they are worth having.
 
 ---
 
@@ -367,6 +374,9 @@ AS_PATH.
 **Session 4 deliverable:** full loopback-to-loopback reachability from every leaf to
 every other leaf. Record the AS_PATH you observed.
 
+**Report back to Claude at this point** — if the eBGP pass has gone smoothly, Phase 3's
+Ansible structure can be built in parallel with the rest of Phase 2.
+
 ---
 
 # Session 5 (day 8) — ECMP, broken on purpose
@@ -409,16 +419,22 @@ show ip bgp 10.0.0.4/32
 **You should see:** both paths, one marked best, the other marked as an ECMP/multipath
 member.
 
+## Snapshot before you break it
+
+```bash
+cd ~/life-os/repos/network-training
+./scripts/save-configs.sh labs/02-underlay/underlay.clab.yml numbered-ecmp
+git add labs/02-underlay/configs && git commit -m "configs: numbered underlay with ECMP working"
+```
+
 ## Now break it deliberately
 
 Change **spine2** to a different ASN:
 
 ```
 configure
-router bgp 65000
-   shutdown
-!
 no router bgp 65000
+!
 router bgp 65005
    router-id 10.0.0.12
    maximum-paths 4 ecmp 4
@@ -574,18 +590,19 @@ Before touching anything, answer from memory:
 4. What operational problem is this solving? Count the addresses you had to plan,
    assign, document and keep unique in Session 2, then multiply by a 1,024-GPU pod.
 
-## Save your work first
+## Save the before-picture first
 
 ```bash
-cd ~/life-os/repos/network-training/labs/02-underlay
-containerlab save -t underlay.clab.yml
 cd ~/life-os/repos/network-training
-git add . && git commit -m "Phase 2: numbered eBGP underlay with ECMP and MTU verified"
+./scripts/save-configs.sh labs/02-underlay/underlay.clab.yml numbered-final
+git add labs/02-underlay/configs LAB-NOTES.md
+git commit -m "Phase 2: numbered eBGP underlay with ECMP and MTU verified"
 git push
 ```
 
-That snapshot is your before-picture. The commit history showing numbered → unnumbered
-is itself portfolio material.
+`save-configs.sh` copies the configs out of the gitignored runtime directory into
+`labs/02-underlay/configs/numbered-final/`, so they survive the next `destroy --cleanup`.
+A commit history showing numbered → unnumbered is itself portfolio material.
 
 ## Convert
 
@@ -696,12 +713,23 @@ Then the whiteboard self-check: [`whiteboard/phase-2-underlay.md`](whiteboard/ph
 
 ## Publish
 
+Save the configs to a tracked path **before** tearing anything down:
+
 ```bash
-cd labs/02-underlay && containerlab save -t underlay.clab.yml
-cd ~/life-os/repos/network-training
-git add . && git commit -m "Phase 2: BGP unnumbered underlay, ECMP verified, MTU measured"
+./scripts/save-configs.sh labs/02-underlay/underlay.clab.yml unnumbered
+git add labs/02-underlay/configs LAB-NOTES.md
+git commit -m "Phase 2: BGP unnumbered underlay, ECMP verified, MTU measured"
 git push
 ```
+
+Only then:
+
+```bash
+cd labs/02-underlay && containerlab destroy -t underlay.clab.yml --cleanup
+```
+
+`--cleanup` deletes the runtime directory `clab-p2-underlay/`. Anything still only in
+there is gone. The `configs/` directory you just committed is untouched.
 
 Per the retention track in your brief: one of Sessions 5, 6 or 7 becomes a short
 LinkedIn technical post. The ECMP break/fix is the strongest of the three — it is a real
@@ -725,5 +753,5 @@ avoiding.
 Author: Claude (Cowork) / Anthropic
 Model: claude-opus-5
 Created: 2026-09-08 ET
-Lineage: original
+Lineage: revised from prior AI draft — config-preservation flow corrected
 ---
