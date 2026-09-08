@@ -16,15 +16,15 @@ Everything here is reproducible from source: `clab deploy` and it exists.
 
 | Phase | Scope | State |
 |---|---|---|
-| **1** | Environment: containerlab up, two nodes boot | **in progress** |
-| 2 | Underlay: BGP unnumbered leaf-spine, ECMP, MTU | not started |
+| 1 | Environment: containerlab up, two nodes boot | **complete** |
+| **2** | Underlay: eBGP leaf-spine, ECMP, MTU, then BGP unnumbered | **ready to run** |
 | 3 | Ansible roles + Jinja templates + inventory | not started |
 | 4 | VXLAN EVPN overlay: type-2/type-5, symmetric IRB, anycast GW, ESI | not started |
 | 5 | AI-fabric config surface: PFC, ECN/WRED, DSCP→queue, ECMP entropy | not started |
 | 6 | Optional capstone: real 2× 8×H100 + IB, nccl-tests benchmark | not started |
 | 7 | Publish: README, benchmark writeup, 1,024-GPU pod Basis of Design | not started |
 
-Phase 1 is deliberately fenced. Nothing past it is built yet.
+Phases are fenced deliberately. Nothing past the current one is built.
 
 ---
 
@@ -35,14 +35,17 @@ docs/
   00-environment-setup.md      Phase 1 runbook — install, import, boot, verify
   01-how-this-works.md         Architecture: namespaces, veth pairs, what the lab does
                                and does not prove
-  phase-1-acceptance.md        Exit criteria and expected output for every step
+  02-phase-2-underlay.md       Phase 2 runbook — 8 sessions, days 4–12
+  phase-1-acceptance.md        Phase 1 exit criteria
   whiteboard/                  "Can I explain this cold?" interview self-checks
 labs/
   00-smoke-test/               2× Alpine, one veth — proves Docker + containerlab
   01-two-node-ceos/            2× Arista cEOS back-to-back — proves the real NOS
+  02-underlay/                 2 spine × 4 leaf — eBGP underlay, ECMP, MTU
 scripts/
   check-env.sh                 Pre-flight: WSL2, Docker flavor, kernel, cgroups
-  verify-phase1.sh             Post-deploy assertions for both labs
+  verify-phase1.sh             Phase 1 assertions
+  verify-phase2.sh             Phase 2 assertions
 LAB-NOTES.md                   Running log — what broke, what fixed it
 ```
 
@@ -63,9 +66,9 @@ chmod +x scripts/*.sh
 ./scripts/check-env.sh          # reports what is missing before you install anything
 ```
 
-Read [`docs/00-environment-setup.md`](docs/00-environment-setup.md) start to finish before
-typing anything else — it assumes no prior Docker or containerlab experience and labels
-every step with whether it happens on Windows or in the WSL terminal.
+Start with [`docs/00-environment-setup.md`](docs/00-environment-setup.md), then
+[`docs/01-how-this-works.md`](docs/01-how-this-works.md) for the architecture, then
+[`docs/02-phase-2-underlay.md`](docs/02-phase-2-underlay.md).
 
 ---
 
@@ -78,10 +81,12 @@ every step with whether it happens on Windows or in the WSL terminal.
   output recorded in `docs/`. "It came up" is not evidence.
 - **Whiteboard cold, then configure.** Each phase has a self-check list in
   `docs/whiteboard/`. If it can't be drawn from memory, it isn't learned.
+- **Measure, don't assume.** Where a value depends on the environment — MTU being the
+  standing example — the lab reads it off the system rather than asserting a number.
 
 ---
 Author: Claude (Cowork) / Anthropic
 Model: claude-opus-5
 Created: 2026-09-02 ET
-Lineage: original
+Lineage: revised from prior AI draft
 ---
