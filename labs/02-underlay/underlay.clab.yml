@@ -1,0 +1,68 @@
+# Phase 2 underlay — 2 spine x 4 leaf, routed point-to-point links.
+#
+# This ONE topology serves both underlay passes:
+#   Sessions 2-6: numbered eBGP over /31 point-to-points
+#   Session 7:    the same cabling, reconfigured as BGP unnumbered
+# The physical design does not change. That is the point.
+#
+# Cabling: every leaf has one link to every spine. No leaf-to-leaf,
+# no spine-to-spine. Eight links total.
+#
+#   spineN:eth<L>  <-->  leafL:eth<N>
+#   e.g. spine1:eth3 <--> leaf3:eth1   |   spine2:eth3 <--> leaf3:eth2
+#
+# So on any leaf: Ethernet1 faces spine1, Ethernet2 faces spine2.
+# On any spine:   EthernetL faces leafL.
+#
+# Deploy:  containerlab deploy -t underlay.clab.yml
+# Inspect: containerlab inspect -t underlay.clab.yml
+# Destroy: containerlab destroy -t underlay.clab.yml --cleanup
+#
+# Expect ~90s to deploy (6 x cEOS). Needs ~12 GB RAM.
+
+name: p2-underlay
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ceos:lab
+
+  nodes:
+    spine1: { kind: arista_ceos }
+    spine2: { kind: arista_ceos }
+    leaf1:  { kind: arista_ceos }
+    leaf2:  { kind: arista_ceos }
+    leaf3:  { kind: arista_ceos }
+    leaf4:  { kind: arista_ceos }
+
+  links:
+    # --- spine1 to every leaf ---
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine1:eth3", "leaf3:eth1"]
+    - endpoints: ["spine1:eth4", "leaf4:eth1"]
+
+    # --- spine2 to every leaf ---
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["spine2:eth3", "leaf3:eth2"]
+    - endpoints: ["spine2:eth4", "leaf4:eth2"]
+
+# ---------------------------------------------------------------------------
+# On MTU: containerlab does not document a default veth MTU, so this topology
+# does NOT set one. Session 6 has you MEASURE the real MTU rather than assume
+# it — which is the habit you want anyway. If you later need to pin it, the
+# extended link form takes an explicit value:
+#
+#   links:
+#     - type: veth
+#       endpoints:
+#         - node: spine1
+#           interface: eth1
+#         - node: leaf1
+#           interface: eth1
+#       mtu: 9500
+#
+# Never set an EOS interface MTU above the underlying veth MTU. The config
+# will accept it and the packets will silently drop.
+# ---------------------------------------------------------------------------
