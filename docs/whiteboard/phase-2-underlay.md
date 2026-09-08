@@ -241,7 +241,7 @@ before an interviewer finds it.
 
 ## Q12. Someone asks you to scale this design to 1,024 GPUs. What are the first three numbers you need?
 
-<invoke name="details"><summary>answer</summary>
+<details><summary>answer</summary>
 
 1. **GPUs per node and NICs per GPU.** 1,024 GPUs at 8 per node is 128 nodes; at one
    400G NIC per GPU that is 1,024 fabric ports before any uplinks. This sets everything
