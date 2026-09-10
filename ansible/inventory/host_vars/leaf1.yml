@@ -1,0 +1,19 @@
+---
+# leaf1 — AS 65001, Loopback0 10.0.0.1
+# Fill in values from labs/02-underlay/README.md (addressing plan).
+bgp_asn: FILL_IN
+loopback_ip: FILL_IN
+
+# fabric_links: one entry per uplink (one per spine).
+# local_ip includes the prefix length (/31). remote_ip is the peer's address (no mask).
+fabric_links:
+  - interface: Ethernet1
+    description: FILL_IN        # which node is on the other end?
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN
+  - interface: Ethernet2
+    description: FILL_IN
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN

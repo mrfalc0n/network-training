@@ -1,0 +1,5 @@
+---
+# Variables that apply to all leaf nodes.
+node_type: leaf
+# Add any other leaf-specific group defaults here.
+# Remember: host_vars override group_vars for the same key.

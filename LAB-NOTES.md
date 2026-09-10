@@ -218,11 +218,13 @@ Why: ECMP pre-installs two next-hops (via spine1 and spine2). A local link event
 
 **`verify-phase2.sh` result:**
 
-_(run after session, paste result here)_
+8/8 PASS — all nodes, CLI, loopbacks, BGP sessions, routes, ECMP (2 next-hops), reachability, 9000-byte MTU.
 
 **Whiteboard self-check score (from `docs/whiteboard/phase-2-underlay.md`):**
 
-_(fill in cold)_
+Good — passed cold. Note: whiteboard self-checks should be revisited periodically as
+later phases build on Phase 2 concepts. Hesitation on any Phase 2 question is a signal
+to re-run the specific lab, not to move on.
 
 **What would make convergence faster, and what would you deploy in a GPU fabric:**
 
@@ -250,6 +252,84 @@ None of this is verifiable in containerlab — no ASIC, no real buffer, no true 
 _(symptom → cause → fix, one line each. Include self-inflicted ones.)_
 
 - 
+
+---
+
+## Phase 3 — Ansible (roles, Jinja2 templates, inventory)
+
+**Started:** 2026-09-10
+
+### Sessions
+
+#### Session 1 — Install, inventory, connectivity
+
+**Date:**
+
+**Ansible version:**
+
+**eAPI connectivity verified:** ✓ / ✗
+
+**Any gotchas hitting the nodes:**
+
+---
+
+#### Session 2 — Variables (group_vars, host_vars)
+
+**Date:**
+
+**Variable design decisions:** (any choices you made about structure that aren't obvious)
+
+---
+
+#### Session 3 — eos_base and eos_interfaces roles
+
+**Date:**
+
+**changed= on first run:**
+
+**changed= on second run (idempotency):**
+
+**Any non-idempotent task and why:**
+
+---
+
+#### Session 4 — eos_bgp role
+
+**Date:**
+
+**Template approach chosen:**
+
+**changed= on second run:**
+
+**verify-phase2.sh result:**
+
+---
+
+#### Session 5 — Diff and validate
+
+**Date:**
+
+**Functional diffs between Ansible-gen and numbered-final:**
+
+**check mode result:**
+
+---
+
+#### Session 6 — Gate: cold deploy + playbook
+
+**Date:**
+
+**Playbook run against fresh fabric:**
+
+**verify-phase2.sh result:**
+
+---
+
+### What broke (Phase 3)
+
+_(symptom → cause → fix)_
+
+-
 
 ---
 

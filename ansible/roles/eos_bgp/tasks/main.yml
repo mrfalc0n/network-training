@@ -1,0 +1,23 @@
+---
+# eos_bgp: BGP configuration.
+#
+# This role uses Jinja2 templates rather than inline 'lines' tasks because
+# the neighbor block is a loop and templates handle that more cleanly.
+#
+# Write one task that uses arista.eos.eos_config with 'src:' pointing to
+# either leaf.j2 or spine.j2, chosen based on node_type.
+#
+# The Jinja2 conditional inline syntax:
+#   src: "{{ 'leaf.j2' if node_type == 'leaf' else 'spine.j2' }}"
+#
+# When 'src' ends in .j2, Ansible looks in this role's templates/ directory,
+# renders it with the host's variables, and sends the result as config lines.
+#
+# Variables available:
+#   bgp_asn         — integer
+#   loopback_ip     — string, no prefix length
+#   bgp_max_paths   — integer (from group_vars/all.yml)
+#   node_type       — 'leaf' or 'spine' (from group_vars/leaves.yml or spines.yml)
+#   fabric_links    — list of dicts with remote_ip and remote_asn
+
+# TODO: one eos_config task, src choosing leaf.j2 or spine.j2 based on node_type

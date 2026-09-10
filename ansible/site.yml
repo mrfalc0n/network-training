@@ -1,0 +1,24 @@
+---
+# Phase 3 site playbook — configures the full 2-spine × 4-leaf underlay fabric.
+#
+# Run:   ansible-playbook site.yml
+# Tags:  --tags base         run eos_base only
+#        --tags interfaces   run eos_interfaces only
+#        --tags bgp          run eos_bgp only
+#
+# On first run against a minimal base config, all tasks will report changed.
+# On subsequent runs against a correctly-configured fabric, changed=0 is expected.
+
+- name: Configure fabric nodes
+  hosts: fabric
+  gather_facts: false
+
+  roles:
+    - role: eos_base
+      tags: base
+
+    - role: eos_interfaces
+      tags: interfaces
+
+    - role: eos_bgp
+      tags: bgp

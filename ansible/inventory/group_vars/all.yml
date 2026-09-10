@@ -1,0 +1,15 @@
+---
+# Variables that apply to every node in the fabric.
+#
+# Connection settings for arista.eos over eAPI.
+ansible_network_os: arista.eos.eos
+ansible_connection: ansible.netcommon.httpapi
+ansible_httpapi_use_ssl: true
+ansible_httpapi_validate_certs: false
+ansible_user: admin
+ansible_password: FILL_IN   # the EOS admin password — use ansible-vault in production
+
+# Fabric-wide config values.
+# These are the same on every node. Change here, propagates everywhere.
+fabric_mtu: FILL_IN        # integer — from Session 6 measurement
+bgp_max_paths: FILL_IN     # integer — maximum-paths N ecmp N

@@ -1,0 +1,16 @@
+---
+# eos_base: identity and routing engine.
+# Sets: hostname, ip routing, routing model, spanning-tree mode.
+#
+# Write your tasks here. Each task uses arista.eos.eos_config with a 'lines' list.
+# Use {{ inventory_hostname }} for the hostname variable.
+#
+# NOTE: 'service routing protocols model multi-agent' requires a process restart
+# to take effect. The gate (Session 6) deploys from a minimal base that already
+# includes it, so this is not an issue there. Document it in this role's README
+# if you add one.
+
+# TODO: set hostname
+# TODO: enable ip routing
+# TODO: set service routing protocols model multi-agent
+# TODO: set spanning-tree mode mstp

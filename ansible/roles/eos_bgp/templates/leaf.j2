@@ -1,0 +1,6 @@
+{# BGP template for leaf nodes.                                                  #}
+{# Target: reproduce the 'router bgp' stanza in configs/numbered-final/leafN.cfg #}
+{# Variables: bgp_asn, loopback_ip, bgp_max_paths, fabric_links (list of dicts)  #}
+{# TODO: write the Jinja2 template that produces the EOS BGP config block.        #}
+{# Include: router bgp, router-id, maximum-paths, multipath-relax,                #}
+{#          neighbor statements (loop over fabric_links), network statement.       #}

@@ -1,0 +1,4 @@
+---
+# Variables that apply to all spine nodes.
+node_type: spine
+# Add any other spine-specific group defaults here.

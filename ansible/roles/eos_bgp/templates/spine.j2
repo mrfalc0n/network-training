@@ -1,0 +1,6 @@
+{# BGP template for spine nodes.                                                   #}
+{# Target: reproduce the 'router bgp' stanza in configs/numbered-final/spineN.cfg #}
+{# Variables: bgp_asn, loopback_ip, bgp_max_paths, fabric_links (list of dicts)   #}
+{# TODO: write the Jinja2 template. Same structure as leaf.j2 but WITHOUT          #}
+{#       multipath-relax (spines do not need it — they have unique-ASN peers only  #}
+{#       on leaf side, and ECMP logic lives on the leaves).                        #}

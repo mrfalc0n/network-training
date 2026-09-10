@@ -1,0 +1,27 @@
+---
+# spine1 — AS 65000, Loopback0 10.0.0.11
+bgp_asn: FILL_IN
+loopback_ip: FILL_IN
+
+# Spines have 4 fabric_links, one per leaf.
+fabric_links:
+  - interface: Ethernet1
+    description: FILL_IN
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN
+  - interface: Ethernet2
+    description: FILL_IN
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN
+  - interface: Ethernet3
+    description: FILL_IN
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN
+  - interface: Ethernet4
+    description: FILL_IN
+    local_ip: FILL_IN/31
+    remote_ip: FILL_IN
+    remote_asn: FILL_IN

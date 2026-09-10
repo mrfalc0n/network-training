@@ -1,0 +1,20 @@
+---
+# eos_interfaces: Loopback0 and all Ethernet fabric links.
+#
+# Write your tasks here.
+#
+# For Loopback0 — use eos_config with 'parents: "interface Loopback0"'
+# and 'lines' containing the ip address statement.
+#
+# For Ethernet interfaces — loop over fabric_links using 'loop:'.
+# Each list item is accessible as 'item' inside the task.
+# Use 'parents: "interface {{ item.interface }}"'
+#
+# Variables available (from group_vars and host_vars):
+#   fabric_mtu      — integer, e.g. 9214
+#   loopback_ip     — e.g. "10.0.0.1"
+#   fabric_links    — list of dicts with interface, description, local_ip, remote_ip, remote_asn
+
+# TODO: configure Loopback0
+# TODO: loop over fabric_links and configure each Ethernet interface
+#       (description, mtu, no switchport, ip address)
