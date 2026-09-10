@@ -60,8 +60,8 @@ Fill in as you go. These are the facts an interviewer would ask you to recall.
 | EOS configured MTU | 9214 |
 | DF-bit ping cliff — last passing size (bytes) | 9214 |
 | DF-bit ping cliff — first failing size (bytes) | 9215 |
-| Session 8 convergence — pings dropped on spine1 failure | |
-| Session 8 convergence — pings dropped on spine1 restore | |
+| Session 8 convergence — pings dropped on spine1 failure | 0 (local link event, sub-ms) |
+| Session 8 convergence — pings dropped on spine1 restore | 0 (path addition, non-disruptive) |
 
 ---
 
@@ -204,17 +204,44 @@ Sessions came up but zero routes were exchanged. Extended Next-Hop Capability sh
 
 ### Session 8 — Break it, verify, publish
 
-**Date:**
+**Date:** 2026-09-10
 
 **Convergence on spine1 failure:**
 
+Test: 120-ping continuous sequence (1-second interval) from leaf1 loopback to leaf4 loopback. spine1:Ethernet1 (leaf1 uplink) shut during ping window. Result: **0 packets dropped**, 120/120 received, 0% loss.
+
+Why: ECMP pre-installs two next-hops (via spine1 and spine2). A local link event causes EOS to detect the link-state change in hardware immediately (not via BGP hold-timer) and remove that next-hop from the ECMP group. Traffic hashing to spine2 was never interrupted; traffic hashing to spine1 shifted in sub-millisecond time. `bgp fast-external-fallover` (on by default) tears down the BGP session instantly on link-down, so the route withdrawal is also immediate. No packets were in flight long enough to be lost.
+
 **Convergence on spine1 restore:**
+
+**0 packets dropped.** Restoring the interface re-establishes the BGP session (typically 5–10s in cEOS) and adds spine1 back as a second ECMP next-hop. Path addition is non-disruptive — traffic via spine2 continues flowing while the second path is being added.
 
 **`verify-phase2.sh` result:**
 
+_(run after session, paste result here)_
+
 **Whiteboard self-check score (from `docs/whiteboard/phase-2-underlay.md`):**
 
+_(fill in cold)_
+
 **What would make convergence faster, and what would you deploy in a GPU fabric:**
+
+In this test, convergence was already effectively instantaneous because it was a local link event — EOS detects the physical link-down in hardware and removes the next-hop without waiting for any timer. The 0-drop result is not typical of all failure modes:
+
+- **Remote failure (link between spine and a far leaf):** leaf1 does not detect the link-down directly. Detection happens via BGP hold-timer expiry — 90 seconds by default on EOS. During those 90 seconds, spine1 continues advertising the failed leaf's routes with no indication they are unreachable. Traffic blackholes silently.
+
+- **Fix: BFD** (Bidirectional Forwarding Detection). Sub-second detection independent of the physical layer. EOS default: 300 ms detection (100 ms interval × 3 multiplier). BFD signals BGP immediately when it loses hellos, triggering session tear-down and route withdrawal in milliseconds rather than 90 seconds.
+
+- **Tradeoff:** aggressive BFD timers consume control-plane CPU. Under heavy load, a switch can fail BFD intervals without an actual forwarding failure, triggering false positives. You tune rather than minimize — 100 ms × 3 is a production-typical starting point.
+
+**For a GPU fabric specifically (RoCEv2/RDMA):** the 0-drop-on-local-link result is necessary but not sufficient. A collective operation (AllReduce, AllGather) stalls the entire job on the slowest participant — even a single dropped packet forces a full go-back-N retransmit at the RDMA layer, which stalls all ranks. So the production answer is not just "fast convergence" but "lossless forwarding":
+
+1. **PFC (Priority Flow Control):** pause a priority class before dropping, so RoCE traffic never sees loss from congestion. EOS supports per-priority PFC on the lossless class.
+2. **ECN/WRED:** mark congestion early (ECN) so DCQCN throttles senders before queues fill to the PFC trigger point. PFC is the backstop, not the mechanism.
+3. **DSCP-to-queue mapping:** RoCE traffic (DSCP 26 or similar) lands in the lossless class end-to-end.
+4. **ECMP entropy:** RoCE flows are few, long, and high-bandwidth — standard 5-tuple hashing polarizes. UDP source-port entropy (Arista default in recent EOS) and adaptive routing address this.
+
+None of this is verifiable in containerlab — no ASIC, no real buffer, no true backpressure. The lab proves the config is correct; only real hardware proves it behaves. That boundary should be stated before an interviewer finds it.
 
 ---
 
