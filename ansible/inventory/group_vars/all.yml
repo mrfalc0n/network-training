@@ -8,6 +8,8 @@ ansible_httpapi_use_ssl: true
 ansible_httpapi_validate_certs: false
 ansible_user: admin
 ansible_password: admin   # the EOS admin password — use ansible-vault in production
+ansible_become: true
+ansible_become_method: enable
 
 # Fabric-wide config values.
 # These are the same on every node. Change here, propagates everywhere.

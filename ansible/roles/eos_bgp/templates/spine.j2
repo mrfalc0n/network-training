@@ -4,3 +4,11 @@
 {# TODO: write the Jinja2 template. Same structure as leaf.j2 but WITHOUT          #}
 {#       multipath-relax (spines do not need it — they have unique-ASN peers only  #}
 {#       on leaf side, and ECMP logic lives on the leaves).                        #}
+
+router bgp {{ bgp_asn }}
+   router-id {{ loopback_ip }}
+   maximum-paths {{ bgp_max_paths }} ecmp {{ bgp_max_paths }}
+{% for link in fabric_links %}
+   neighbor {{ link.remote_ip }} remote-as {{ link.remote_asn }}
+{% endfor %}
+   network {{ loopback_ip }}/32

@@ -20,4 +20,6 @@
 #   node_type       — 'leaf' or 'spine' (from group_vars/leaves.yml or spines.yml)
 #   fabric_links    — list of dicts with remote_ip and remote_asn
 
-# TODO: one eos_config task, src choosing leaf.j2 or spine.j2 based on node_type
+- name: configure BGP
+  arista.eos.eos_config:
+    src: "{{ 'leaf.j2' if node_type == 'leaf' else 'spine.j2' }}"

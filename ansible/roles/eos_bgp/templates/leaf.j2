@@ -4,3 +4,12 @@
 {# TODO: write the Jinja2 template that produces the EOS BGP config block.        #}
 {# Include: router bgp, router-id, maximum-paths, multipath-relax,                #}
 {#          neighbor statements (loop over fabric_links), network statement.       #}
+
+router bgp {{ bgp_asn }}
+   router-id {{ loopback_ip }}
+   maximum-paths {{ bgp_max_paths }} ecmp {{ bgp_max_paths }}
+   bgp bestpath as-path multipath-relax
+{% for link in fabric_links %}
+   neighbor {{ link.remote_ip }} remote-as {{ link.remote_asn }}
+{% endfor %}
+   network {{ loopback_ip }}/32

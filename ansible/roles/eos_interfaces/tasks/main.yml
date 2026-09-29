@@ -15,6 +15,18 @@
 #   loopback_ip     — e.g. "10.0.0.1"
 #   fabric_links    — list of dicts with interface, description, local_ip, remote_ip, remote_asn
 
-# TODO: configure Loopback0
-# TODO: loop over fabric_links and configure each Ethernet interface
-#       (description, mtu, no switchport, ip address)
+- name: configure Loopback0
+  arista.eos.eos_config:
+    parents: "interface Loopback0"
+    lines:
+      - "ip address {{ loopback_ip }}/32"
+
+- name: configure fabric links
+  arista.eos.eos_config:
+    parents: "interface {{ item.interface }}"
+    lines:
+      - "description {{ item.description }}"
+      - "mtu {{ fabric_mtu }}"
+      - "no switchport"
+      - "ip address {{ item.local_ip }}"
+  loop: "{{ fabric_links }}"
