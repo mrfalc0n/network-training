@@ -1,16 +1,16 @@
 ---
 # leaf4 — AS 65004, Loopback0 10.0.0.4
-bgp_asn: FILL_IN
-loopback_ip: FILL_IN
+bgp_asn: 65004
+loopback_ip: 10.0.0.4
 
 fabric_links:
   - interface: Ethernet1
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: spine1-Eth4
+    local_ip: 10.1.0.7/31
+    remote_ip: 10.1.0.6
+    remote_asn: 65000
   - interface: Ethernet2
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: spine2-Eth4
+    local_ip: 10.1.0.15/31
+    remote_ip: 10.1.0.14
+    remote_asn: 65005

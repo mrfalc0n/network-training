@@ -7,9 +7,9 @@ ansible_connection: ansible.netcommon.httpapi
 ansible_httpapi_use_ssl: true
 ansible_httpapi_validate_certs: false
 ansible_user: admin
-ansible_password: FILL_IN   # the EOS admin password — use ansible-vault in production
+ansible_password: admin   # the EOS admin password — use ansible-vault in production
 
 # Fabric-wide config values.
 # These are the same on every node. Change here, propagates everywhere.
-fabric_mtu: FILL_IN        # integer — from Session 6 measurement
-bgp_max_paths: FILL_IN     # integer — maximum-paths N ecmp N
+fabric_mtu: 9214        # integer — from Session 6 measurement
+bgp_max_paths: 4     # integer — maximum-paths N ecmp N

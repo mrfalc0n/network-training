@@ -1,16 +1,16 @@
 ---
 # leaf3 — AS 65003, Loopback0 10.0.0.3
-bgp_asn: FILL_IN
-loopback_ip: FILL_IN
+bgp_asn: 65003
+loopback_ip: 10.0.0.3
 
 fabric_links:
   - interface: Ethernet1
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: spine1-Eth3
+    local_ip: 10.1.0.5/31
+    remote_ip: 10.1.0.4
+    remote_asn: 65000
   - interface: Ethernet2
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: spine2-Eth3
+    local_ip: 10.1.0.13/31
+    remote_ip: 10.1.0.12
+    remote_asn: 65005

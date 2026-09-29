@@ -1,26 +1,26 @@
 ---
 # spine2 — AS 65005, Loopback0 10.0.0.12
-bgp_asn: FILL_IN
-loopback_ip: FILL_IN
+bgp_asn: 65005
+loopback_ip: 10.0.0.12
 
 fabric_links:
   - interface: Ethernet1
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: leaf1-Eth2
+    local_ip: 10.1.0.8/31
+    remote_ip: 10.1.0.9
+    remote_asn: 65001
   - interface: Ethernet2
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: leaf2-Eth2
+    local_ip: 10.1.0.10/31
+    remote_ip: 10.1.0.11
+    remote_asn: 65002
   - interface: Ethernet3
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: leaf3-Eth2
+    local_ip: 10.1.0.12/31
+    remote_ip: 10.1.0.13
+    remote_asn: 65003
   - interface: Ethernet4
-    description: FILL_IN
-    local_ip: FILL_IN/31
-    remote_ip: FILL_IN
-    remote_asn: FILL_IN
+    description: leaf4-Eth2
+    local_ip: 10.1.0.14/31
+    remote_ip: 10.1.0.15
+    remote_asn: 65004
